@@ -1,0 +1,27 @@
+x-app: &app
+  build: .
+  image: claims-workflow-review:local
+  environment:
+    CLAIMS_DB: /app/data/review.sqlite
+    CLAIMS_DEMO_MODE: "1"
+    CLAIMS_DEMO_ACCESS_KEY: "${CLAIMS_DEMO_ACCESS_KEY:?set a local demo access key}"
+  volumes:
+    - review-data:/app/data
+services:
+  api:
+    <<: *app
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  worker:
+    <<: *app
+    command: ["python", "-m", "claims.worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: on-failure
+volumes:
+  review-data:
